@@ -2,12 +2,13 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/dghubble/sling"
-	"github.com/rumlang/rum/runtime"
+	lua "github.com/yuin/gopher-lua"
 )
 
 type (
@@ -15,14 +16,41 @@ type (
 	}
 )
 
-func (l httpLib) LoadLibrary(ctx *runtime.Context) {
-	ctx.SetFn("http.get", l.httpFn("GET"))
-	ctx.SetFn("http.post", l.httpFn("POST"))
-	ctx.SetFn("http.status", l.status)
-	ctx.SetFn("http.body", l.body)
-	// ctx.SetFn("http.head", l.httpFn("HEAD"))
-	// ctx.SetFn("http.put", l.httpFn("PUT"))
-	// ctx.SetFn("http.delete", l.httpFn("DELETE"))
+func (l httpLib) load(L *lua.LState) int {
+	createForMethod := func(method string) func(*lua.LState) int {
+		return func(L *lua.LState) int {
+			var url, body string
+			switch L.GetTop() {
+			case 0:
+				L.Push(lua.LNil)
+				L.Push(lua.LNil)
+				L.Push(lua.LString("no body"))
+				return 3
+			case 1:
+				url = L.CheckString(1)
+			case 2:
+				url = L.CheckString(1)
+				body = L.CheckString(2)
+			}
+			body, status, err := l.httpCall(method, url, body)
+			L.Push(lua.LString(body))
+			L.Push(lua.LNumber(float64(status)))
+			if err != nil {
+				L.Push(lua.LString(err.Error()))
+			} else {
+				L.Push(lua.LNil)
+			}
+			return 3
+		}
+	}
+
+	methods := map[string]lua.LGFunction{
+		"get":  createForMethod("GET"),
+		"post": createForMethod("POST"),
+	}
+	mod := L.SetFuncs(L.NewTable(), methods)
+	L.Push(mod)
+	return 1
 }
 
 func (l httpLib) status(args []interface{}) (int, error) {
@@ -43,44 +71,49 @@ func (l httpLib) body(args []interface{}) (string, error) {
 	return args[0].(string), nil
 }
 
-func (l httpLib) httpFn(method string) func(args ...string) ([]interface{}, error) {
-	return func(args ...string) ([]interface{}, error) {
-		var url, body string
-		log.Print(2, args)
-
-		switch len(args) {
-		case 0:
-			return nil, errors.New("missing url")
-		case 1:
-			url = args[0]
-		case 2:
-			url, body = args[0], args[1]
-		}
-
-		s := sling.New().Base(url)
-		switch method {
-		case "GET":
-			return process(s.Get(""))
-		case "POST":
-			return process(s.Body(bytes.NewBufferString(body)).Post(""))
-		}
-		return nil, errors.New("invalid method")
+func (l httpLib) json(args []interface{}) (interface{}, error) {
+	switch len(args) {
+	case 2:
+	default:
+		println("no args")
+		return nil, errors.New("no args")
 	}
+
+	var out map[string]interface{}
+	println("args[0].(string)", args[0].(string))
+	err := json.Unmarshal([]byte(args[0].(string)), &out)
+	if err != nil {
+		println("errors!")
+		return nil, err
+	}
+
+	return out, nil
 }
 
-func process(s *sling.Sling) ([]interface{}, error) {
+func (l httpLib) httpCall(method, url, body string) (string, int, error) {
+	s := sling.New().Base(url)
+	switch method {
+	case "GET":
+		return process(s.Get(""))
+	case "POST":
+		return process(s.Body(bytes.NewBufferString(body)).Post(""))
+	}
+	return "", 0, errors.New("invalid method")
+}
+
+func process(s *sling.Sling) (string, int, error) {
 	req, err := s.Request()
 	if err != nil {
-		return nil, err
+		return "", 0, err
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return "", 0, err
 	}
 	defer resp.Body.Close()
 	buf, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return "", 0, err
 	}
-	return []interface{}{string(buf), resp.StatusCode}, nil
+	return string(buf), resp.StatusCode, nil
 }

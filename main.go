@@ -2,11 +2,11 @@
 //
 // Think of it as a Jenkinsfile that you can use from your CI/CD pipeline or from your terminal.
 //
-// Build scripts are written in lisp because I wanted an excuse to use it
+// Build scripts are written in lua because I like it!
 //
 // Applies POLA principle, if you have a reference to a function that means you can call it, do give functions to people that don't deserve them!
 //
-// shell-out is a super dangerous functions and will bit you if you give it to somebody.
+// cmd.run is a super dangerous functions and will bit you if you give it to somebody, by default it is disabled. Run with -run-cmd true to enable it
 package main
 
 import (
@@ -15,10 +15,9 @@ import (
 	"os"
 	"unicode/utf8"
 
-	"github.com/pkg/errors"
+	jsonmodule "github.com/layeh/gopher-json"
 
-	"github.com/rumlang/rum/parser"
-	"github.com/rumlang/rum/runtime"
+	lua "github.com/yuin/gopher-lua"
 )
 
 var (
@@ -26,7 +25,7 @@ var (
 	scriptCode = flag.String("code", "", "When configured, will run this code instead of script")
 	allowHTTP  = flag.Bool("http", false, "Allow the library to issue simple http requests (get/post/put/delete/head)")
 	runCmd     = flag.Bool("run-cmd", false, "Allow the script start other processes")
-	prefix     = flag.String("prefix", "[build-it]", "Prefix used to output build-it info")
+	prefix     = flag.String("prefix", "[build-it] ", "Prefix used to output build-it info")
 	verbose    = flag.Int("verbose", 0, "How verbose the app should be (only used for build-it related logging)")
 )
 
@@ -44,18 +43,17 @@ func runScript(script []byte) {
 		log.Fatal("build-it: script is not utf-8 encoded! <(｀^´)>")
 	}
 
-	root, err := parser.Parse(parser.NewSource(string(script)))
-	if err != nil {
-		log.Fatal(errors.Wrap(err, "build-it: parse error! (ʘᗩʘ’)"))
+	L := lua.NewState()
+	L.PreloadModule("json", jsonmodule.Loader)
+	if *allowHTTP {
+		L.PreloadModule("http", (httpLib{}.load))
 	}
+	L.PreloadModule("cmd", lib{*runCmd}.load)
 
-	ctx := runtime.NewContext(nil)
-	builditLib := &lib{canRunCmd: *runCmd}
-	builditLib.LoadLib(ctx)
-	(httpLib{}).LoadLibrary(ctx)
+	defer L.Close()
 
-	if _, err = ctx.TryEval(root); err != nil {
-		log.Fatal(errors.Wrap(err, "build-it: execution error! (╯°□°）╯︵ ┻━┻"))
+	if err := L.DoString(string(script)); err != nil {
+		panic(err)
 	}
 }
 

@@ -1,2 +1,0 @@
-(package "main"
-    (print (http.body (http.post "http://localhost:8080/actor/new"))))

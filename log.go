@@ -20,9 +20,9 @@ func (l logT) Print(level int, args ...interface{}) {
 	if int(l) < level {
 		return
 	}
-	logp.Print(args)
+	logp.Print(args...)
 }
 
 func (l logT) Fatal(args ...interface{}) {
-	logp.Fatal(args)
+	logp.Fatal(args...)
 }

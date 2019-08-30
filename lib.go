@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/rumlang/rum/runtime"
+	lua "github.com/yuin/gopher-lua"
 )
 
 type (
@@ -16,21 +16,40 @@ type (
 	}
 )
 
-func (l *lib) LoadLib(ctx *runtime.Context) {
-	if l.canRunCmd {
-		ctx.SetFn("buildit.run", l.runCmd)
+func (l lib) load(L *lua.LState) int {
+	exports := map[string]lua.LGFunction{
+		"fatal": func(L *lua.LState) int {
+			ec := L.CheckInt(1)
+			msg := L.CheckString(2)
+
+			log.Print(-1, msg)
+			os.Exit(ec)
+			return 2
+		},
 	}
-	ctx.SetFn("buildit.fatal", l.fatal)
-	ctx.SetFn("concat", l.concat)
-	ctx.SetFn("concat-with", l.concatWith)
-}
-
-func (l *lib) concat(args ...interface{}) string {
-	return strings.Join(toStringArray(args), "")
-}
-
-func (l *lib) concatWith(sep string, args ...interface{}) string {
-	return strings.Join(toStringArray(args), sep)
+	if l.canRunCmd {
+		exports["run"] = func(L *lua.LState) int {
+			top := L.GetTop()
+			switch top {
+			case 0:
+				L.Push(lua.LNil)
+				L.Push(lua.LString("missing binary"))
+				return 2
+			}
+			var args []string
+			bin := L.CheckString(1)
+			for i := 2; i <= top; i++ {
+				args = append(args, lua.LVAsString(L.Get(i)))
+			}
+			output, err := l.runCmd(bin, args...)
+			L.Push(lua.LString(output))
+			pushErr(L, err)
+			return 2
+		}
+	}
+	mod := L.SetFuncs(L.NewTable(), exports)
+	L.Push(mod)
+	return 1
 }
 
 func (l *lib) fatal(code int, reason interface{}) {
@@ -38,8 +57,8 @@ func (l *lib) fatal(code int, reason interface{}) {
 	os.Exit(code)
 }
 
-func (l *lib) runCmd(binary string, args ...interface{}) (string, error) {
-	cmd := exec.Command(binary, toStringArray(args)...)
+func (l *lib) runCmd(binary string, args ...string) (string, error) {
+	cmd := exec.Command(binary, args...)
 	cmd.Stderr = os.Stderr
 	var stdoutBuf bytes.Buffer
 	cmd.Stdout = &stdoutBuf

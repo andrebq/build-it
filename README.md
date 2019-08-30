@@ -1,3 +1,3 @@
 # What is this?
 
-`build-it` is similar to a Jenkinsfile but uses lisp!
+`build-it` is similar to a Jenkinsfile but uses lua!

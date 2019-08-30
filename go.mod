@@ -1,8 +1,7 @@
 module github.com/andrebq/build-it
 
 require (
-	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
 	github.com/dghubble/sling v1.3.0
-	github.com/pkg/errors v0.8.1
-	github.com/rumlang/rum v0.0.0-20180312205828-79dcb3321a71
+	github.com/layeh/gopher-json v0.0.0-20190114024228-97fed8db8427
+	github.com/yuin/gopher-lua v0.0.0-20190514113301-1cd887cd7036
 )

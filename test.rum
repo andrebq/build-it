@@ -1,2 +1,0 @@
-(package "main"
-    (print (buildit.run "echo" "from build-it")))
