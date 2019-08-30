@@ -46,6 +46,7 @@ func (l httpLib) body(args []interface{}) (string, error) {
 func (l httpLib) httpFn(method string) func(args ...string) ([]interface{}, error) {
 	return func(args ...string) ([]interface{}, error) {
 		var url, body string
+		log.Print(2, args)
 
 		switch len(args) {
 		case 0:

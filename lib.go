@@ -21,6 +21,16 @@ func (l *lib) LoadLib(ctx *runtime.Context) {
 		ctx.SetFn("buildit.run", l.runCmd)
 	}
 	ctx.SetFn("buildit.fatal", l.fatal)
+	ctx.SetFn("concat", l.concat)
+	ctx.SetFn("concat-with", l.concatWith)
+}
+
+func (l *lib) concat(args []interface{}) string {
+	return strings.Join(toStringArray(args), "")
+}
+
+func (l *lib) concatWith(sep string, args []interface{}) string {
+	return strings.Join(toStringArray(args), sep)
 }
 
 func (l *lib) fatal(code int, reason interface{}) {

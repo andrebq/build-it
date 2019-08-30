@@ -1,2 +1,2 @@
 (package "main"
-    (print (http.status (http.get "http://www.google.com"))))
+    (print (http.body (http.post "http://localhost:8080/actor/new"))))
