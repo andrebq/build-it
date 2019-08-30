@@ -1,0 +1,2 @@
+(package "main"
+    (print (http.status (http.get "http://www.google.com"))))
