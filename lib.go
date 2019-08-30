@@ -25,11 +25,11 @@ func (l *lib) LoadLib(ctx *runtime.Context) {
 	ctx.SetFn("concat-with", l.concatWith)
 }
 
-func (l *lib) concat(args []interface{}) string {
+func (l *lib) concat(args ...interface{}) string {
 	return strings.Join(toStringArray(args), "")
 }
 
-func (l *lib) concatWith(sep string, args []interface{}) string {
+func (l *lib) concatWith(sep string, args ...interface{}) string {
 	return strings.Join(toStringArray(args), sep)
 }
 
